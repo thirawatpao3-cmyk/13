@@ -1,0 +1,130 @@
+-- Universal Boombox Remote GUI for Delta
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+-- ป้องกันเปิดซ้ำ
+if playerGui:FindFirstChild("UniversalBoomboxGui") then
+    playerGui.UniversalBoomboxGui:Destroy()
+end
+
+-- สร้างหน้าต่าง GUI
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "UniversalBoomboxGui"
+screenGui.Parent = playerGui
+
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 280, 0, 180)
+frame.Position = UDim2.new(0.5, -140, 0.4, -90)
+frame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+frame.BorderSizePixel = 0
+frame.Active = true
+frame.Draggable = true
+frame.Parent = screenGui
+
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 12)
+corner.Parent = frame
+
+-- หัวข้อ
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, 0, 0, 35)
+title.Position = UDim2.new(0, 0, 0, 5)
+title.Text = "🎵 Universal Boombox Remote"
+title.TextColor3 = Color3.fromRGB(255, 255, 255)
+title.TextSize = 15
+title.Font = Enum.Font.SourceSansBold
+title.BackgroundTransparency = 1
+title.Parent = frame
+
+-- ช่องใส่ ID เพลง
+local textBox = Instance.new("TextBox")
+textBox.Size = UDim2.new(0, 240, 0, 40)
+textBox.Position = UDim2.new(0.5, -120, 0.28, 0)
+textBox.PlaceholderText = "ใส่ Audio ID เพลงที่นี่..."
+textBox.Text = ""
+textBox.TextSize = 14
+textBox.TextColor3 = Color3.fromRGB(0, 0, 0)
+textBox.BackgroundColor3 = Color3.fromRGB(245, 245, 245)
+textBox.Parent = frame
+
+local tbCorner = Instance.new("UICorner")
+tbCorner.CornerRadius = UDim.new(0, 8)
+tbCorner.Parent = textBox
+
+-- ปุ่มเล่นเพลง (พยายามยิงรีโมทเซิร์ฟเวอร์เพื่อให้คนอื่นได้ยิน)
+local playButton = Instance.new("TextButton")
+playButton.Size = UDim2.new(0, 115, 0, 38)
+playButton.Position = UDim2.new(0.08, 0, 0.65, 0)
+playButton.Text = "เปิด (ทุกคนได้ยิน)"
+playButton.TextSize = 13
+playButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+playButton.BackgroundColor3 = Color3.fromRGB(0, 170, 127)
+playButton.Parent = frame
+
+local pbCorner = Instance.new("UICorner")
+pbCorner.CornerRadius = UDim.new(0, 8)
+pbCorner.Parent = playButton
+
+-- ปุ่มปิดเพลง
+local stopButton = Instance.new("TextButton")
+stopButton.Size = UDim2.new(0, 115, 0, 38)
+stopButton.Position = UDim2.new(0.52, 0, 0.65, 0)
+stopButton.Text = "ปิดเพลง"
+stopButton.TextSize = 13
+stopButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+stopButton.BackgroundColor3 = Color3.fromRGB(220, 50, 50)
+stopButton.Parent = frame
+
+local sbCorner = Instance.new("UICorner")
+sbCorner.CornerRadius = UDim.new(0, 8)
+sbCorner.Parent = stopButton
+
+-- ฟังก์ชันพยายามค้นหาและใช้งาน RemoteEvent ในเกม
+local function getBoomboxRemote()
+    for _, v in ipairs(game:GetDescendants()) do
+        if v:IsA("RemoteEvent") and (v.Name:lower():find("boombox") or v.Name:lower():find("music") or v.Name:lower():find("song") or v.Name:lower():find("play")) then
+            return v
+        end
+    end
+    return nil
+end
+
+-- ปุ่มกดเล่น
+playButton.MouseButton1Click:Connect(function()
+    local musicId = textBox.Text
+    if musicId ~= "" then
+        local remote = getBoomboxRemote()
+        if remote then
+            -- ถ้าเกมมีรีโมทเพลง จะส่งค่าไปที่ Server เพื่อให้คนอื่นได้ยิน
+            pcall(function()
+                remote:FireServer(musicId)
+            end)
+            pcall(function()
+                remote:FireServer("Play", musicId)
+            end)
+            print("ส่งคำสั่งเล่นเพลงไปที่ Server แล้ว: " .. musicId)
+        else
+            -- สำรองกรณีหาไม่เจอ เล่นเฉพาะเครื่องตัวเอง
+            local sound = workspace:FindFirstChild("DeltaCustomSound") or Instance.new("Sound", workspace)
+            sound.Name = "DeltaCustomSound"
+            sound.SoundId = "rbxassetid://" .. musicId
+            sound:Play()
+            print("ไม่พบรีโมทเซิร์ฟเวอร์ เปิดฟังคนเดียวแทน")
+        end
+    end
+end)
+
+-- ปุ่มกดหยุด
+stopButton.MouseButton1Click:Connect(function()
+    local remote = getBoomboxRemote()
+    if remote then
+        pcall(function()
+            remote:FireServer("Stop")
+        end)
+    end
+    local sound = workspace:FindFirstChild("DeltaCustomSound")
+    if sound then
+        sound:Stop()
+    end
+end)
